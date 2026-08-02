@@ -1,218 +1,189 @@
 import os
 import pickle
 import numpy as np
-from flask import Flask, request, render_template_string, jsonify
+from flask import Flask, render_template_string, request, jsonify
 
 app = Flask(__name__)
 
-# Load the trained XGBoost model from the binary string or file
-MODEL_PATH = "Xg_model.pkl"
-model = None
+# Model loading logic
+MODEL_PATH = 'Xg_model.pkl'
 
-if os.path.exists(MODEL_PATH):
-    try:
-        with open(MODEL_PATH, "rb") as f:
-            model = pickle.load(f)
-    except Exception as e:
-        print(f"Warning: Could not load {MODEL_PATH}: {e}")
+def load_model():
+    if os.path.exists(MODEL_PATH):
+        try:
+            with open(MODEL_PATH, 'rb') as f:
+                return pickle.load(f)
+        except Exception as e:
+            print(f"Error loading pickle file: {e}")
+            return None
+    return None
 
-# Features mapped directly from your serialized XGBoost model structure
-FEATURE_NAMES = [
-    'no_of_dependents',
-    'education',
-    'self_employed',
-    'income_annum',
-    'loan_amount',
-    'loan_term',
-    'cibil_score',
-    'residential_assets_value',
-    'commercial_assets_value',
-    'luxury_assets_value',
-    'bank_asset_value'
+model = load_model()
+
+# Feature mapping order as per model definition
+FEATURE_KEYS = [
+    'no_of_dependents', 'education', 'self_employed', 'income_annum',
+    'loan_amount', 'loan_term', 'cibil_score', 'residential_assets_value',
+    'commercial_assets_value', 'luxury_assets_value', 'bank_asset_value'
 ]
 
-# Integrated Dashboard HTML with Embedded Dynamic Styles, Animations, Theme Swapper & Charts
-HTML_TEMPLATE = """
+HTML_LAYOUT = """
 <!DOCTYPE html>
 <html lang="en" data-theme="emerald">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Healthcare Results Prediction</title>
+    <title>AI Loan Approval Status Prediction</title>
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <!-- Font Awesome Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+    
     <style>
-        :root {
-            /* Emerald Cyber Theme (Default) */
-            --bg-base: #0b1329;
-            --bg-surface: #111c38;
-            --bg-card: rgba(23, 37, 71, 0.7);
-            --border-color: rgba(64, 93, 156, 0.3);
-            --text-primary: #f1f5f9;
-            --text-secondary: #94a3b8;
-            --accent-primary: #10b981;
-            --accent-secondary: #06b6d4;
-            --accent-gradient: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
-            --accent-glow: rgba(16, 185, 129, 0.35);
-            --card-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
-            --font-main: 'Plus Jakarta Sans', sans-serif;
-            --font-heading: 'Outfit', sans-serif;
+        :root[data-theme="emerald"] {
+            --bg-primary: #0b1329;
+            --bg-secondary: #111c38;
+            --card-bg: rgba(23, 37, 72, 0.7);
+            --accent-primary: #00f2fe;
+            --accent-secondary: #4facfe;
+            --accent-success: #00e676;
+            --accent-warning: #ffb300;
+            --accent-danger: #ff5252;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --shadow-glow: 0 10px 30px -10px rgba(0, 242, 254, 0.3);
+            --card-gradient: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
         }
 
-        [data-theme="neon"] {
-            /* Cyberpunk Neon */
-            --bg-base: #0f051d;
-            --bg-surface: #1a0b2e;
-            --bg-card: rgba(38, 16, 66, 0.7);
-            --border-color: rgba(168, 85, 247, 0.3);
-            --text-primary: #f8fafc;
-            --text-secondary: #c084fc;
-            --accent-primary: #ec4899;
-            --accent-secondary: #8b5cf6;
-            --accent-gradient: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
-            --accent-glow: rgba(236, 72, 153, 0.4);
+        :root[data-theme="cyberpunk"] {
+            --bg-primary: #0d0221;
+            --bg-secondary: #19053d;
+            --card-bg: rgba(38, 12, 89, 0.6);
+            --accent-primary: #ff007f;
+            --accent-secondary: #7928ca;
+            --accent-success: #00f5d4;
+            --accent-warning: #fee440;
+            --accent-danger: #ff0055;
+            --text-main: #ffffff;
+            --text-muted: #b8a7ea;
+            --border-color: rgba(255, 0, 127, 0.2);
+            --shadow-glow: 0 10px 30px -10px rgba(255, 0, 127, 0.4);
+            --card-gradient: linear-gradient(135deg, rgba(255, 0, 127, 0.1) 0%, rgba(121, 40, 202, 0.05) 100%);
         }
 
-        [data-theme="sunset"] {
-            /* Sunset Vibrant */
-            --bg-base: #1a0c18;
-            --bg-surface: #261224;
-            --bg-card: rgba(53, 23, 49, 0.7);
-            --border-color: rgba(251, 146, 60, 0.3);
-            --text-primary: #fff7ed;
-            --text-secondary: #fdba74;
-            --accent-primary: #f97316;
-            --accent-secondary: #e11d48;
-            --accent-gradient: linear-gradient(135deg, #f97316 0%, #e11d48 100%);
-            --accent-glow: rgba(249, 115, 22, 0.4);
+        :root[data-theme="sunset"] {
+            --bg-primary: #1a0c18;
+            --bg-secondary: #2d1527;
+            --card-bg: rgba(61, 25, 52, 0.6);
+            --accent-primary: #ff6b6b;
+            --accent-secondary: #ff8e53;
+            --accent-success: #2ecd71;
+            --accent-warning: #f1c40f;
+            --accent-danger: #e74c3c;
+            --text-main: #fff0f5;
+            --text-muted: #d4a5b8;
+            --border-color: rgba(255, 107, 107, 0.2);
+            --shadow-glow: 0 10px 30px -10px rgba(255, 107, 107, 0.3);
+            --card-gradient: linear-gradient(135deg, rgba(255, 107, 107, 0.1) 0%, rgba(255, 142, 83, 0.05) 100%);
         }
 
-        [data-theme="corporate"] {
-            /* Professional Light Theme */
-            --bg-base: #f0f4f9;
-            --bg-surface: #ffffff;
-            --bg-card: rgba(255, 255, 255, 0.85);
-            --border-color: rgba(203, 213, 225, 0.8);
-            --text-primary: #0f172a;
-            --text-secondary: #475569;
-            --accent-primary: #2563eb;
-            --accent-secondary: #0284c7;
-            --accent-gradient: linear-gradient(135deg, #2563eb 0%, #0284c7 100%);
-            --accent-glow: rgba(37, 99, 235, 0.25);
-            --card-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.08);
+        :root[data-theme="corporate"] {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --accent-primary: #38bdf8;
+            --accent-secondary: #818cf8;
+            --accent-success: #34d399;
+            --accent-warning: #fbbf24;
+            --accent-danger: #f87171;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border-color: rgba(56, 189, 248, 0.15);
+            --shadow-glow: 0 10px 30px -10px rgba(56, 189, 248, 0.25);
+            --card-gradient: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%);
         }
 
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            transition: background-color 0.4s ease, border-color 0.4s ease, color 0.4s ease;
+            transition: background-color 0.4s ease, border-color 0.4s ease, color 0.4s ease, box-shadow 0.4s ease;
         }
 
         body {
-            font-family: var(--font-main);
-            background-color: var(--bg-base);
-            color: var(--text-primary);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-main);
             min-height: 100vh;
             overflow-x: hidden;
-            position: relative;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(79, 172, 254, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 85% 85%, rgba(0, 242, 254, 0.08) 0%, transparent 40%);
         }
 
-        /* Animated Background Particles Grid */
-        .bg-glow {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            pointer-events: none;
-            z-index: 0;
-            background: 
-                radial-gradient(circle at 15% 20%, var(--accent-glow) 0%, transparent 45%),
-                radial-gradient(circle at 85% 80%, rgba(6, 182, 212, 0.15) 0%, transparent 45%);
-            animation: pulseGlow 10s infinite alternate ease-in-out;
+        /* Glassmorphism Classes */
+        .glass-panel {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
         }
 
-        @keyframes pulseGlow {
-            0% { transform: scale(1); opacity: 0.8; }
-            100% { transform: scale(1.1); opacity: 1; }
-        }
-
-        /* Container Layout */
-        .app-container {
-            position: relative;
-            z-index: 1;
-            max-width: 1440px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-
-        /* Navbar Header */
-        header {
+        .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: var(--bg-card);
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--border-color);
-            padding: 1.25rem 2rem;
-            border-radius: 20px;
-            margin-bottom: 2rem;
-            box-shadow: var(--card-shadow);
-            animation: slideDown 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            padding: 1.5rem 3rem;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(11, 19, 41, 0.5);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
 
-        .brand {
+        .logo-container {
             display: flex;
             align-items: center;
             gap: 1rem;
         }
 
-        .brand-icon {
-            width: 48px;
-            height: 48px;
-            background: var(--accent-gradient);
+        .logo-icon {
+            width: 45px;
+            height: 45px;
             border-radius: 12px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.5rem;
-            color: #fff;
-            box-shadow: 0 8px 16px var(--accent-glow);
-            animation: float 3s infinite alternate ease-in-out;
+            font-size: 1.4rem;
+            color: #000;
+            box-shadow: var(--shadow-glow);
+            animation: pulse-glow 3s infinite alternate;
         }
 
-        .brand h1 {
-            font-family: var(--font-heading);
+        .logo-text {
+            font-family: 'Space Grotesk', sans-serif;
             font-size: 1.5rem;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-            background: var(--accent-gradient);
+            font-weight: 700;
+            background: linear-gradient(90deg, #fff, var(--text-muted));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
-        .theme-selector-wrapper {
+        .theme-selector {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
-            background: var(--bg-surface);
-            padding: 0.5rem 1rem;
+            gap: 0.5rem;
+            background: var(--bg-secondary);
+            padding: 0.4rem 0.8rem;
             border-radius: 30px;
             border: 1px solid var(--border-color);
-        }
-
-        .theme-selector-wrapper label {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            font-weight: 600;
         }
 
         .theme-btn {
@@ -221,7 +192,7 @@ HTML_TEMPLATE = """
             border-radius: 50%;
             border: 2px solid transparent;
             cursor: pointer;
-            transition: transform 0.2s ease, border-color 0.2s ease;
+            transition: transform 0.2s;
         }
 
         .theme-btn:hover {
@@ -229,79 +200,79 @@ HTML_TEMPLATE = """
         }
 
         .theme-btn.active {
-            border-color: var(--text-primary);
+            border-color: #fff;
+            transform: scale(1.1);
         }
 
-        .theme-btn[data-theme-val="emerald"] { background: linear-gradient(135deg, #10b981, #06b6d4); }
-        .theme-btn[data-theme-val="neon"] { background: linear-gradient(135deg, #ec4899, #8b5cf6); }
-        .theme-btn[data-theme-val="sunset"] { background: linear-gradient(135deg, #f97316, #e11d48); }
-        .theme-btn[data-theme-val="corporate"] { background: linear-gradient(135deg, #2563eb, #0284c7); }
+        .theme-emerald { background: linear-gradient(45deg, #00f2fe, #4facfe); }
+        .theme-cyberpunk { background: linear-gradient(45deg, #ff007f, #7928ca); }
+        .theme-sunset { background: linear-gradient(45deg, #ff6b6b, #ff8e53); }
+        .theme-corporate { background: linear-gradient(45deg, #38bdf8, #818cf8); }
 
-        /* Main Grid */
-        .dashboard-grid {
+        .dashboard-container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
             display: grid;
-            grid-template-columns: 1fr 1.2fr;
+            grid-template-columns: 1fr 1fr;
             gap: 2rem;
         }
 
         @media (max-width: 1024px) {
-            .dashboard-grid {
+            .dashboard-container {
                 grid-template-columns: 1fr;
             }
         }
 
-        /* Glassmorphism Cards */
-        .card {
-            background: var(--bg-card);
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--border-color);
-            border-radius: 24px;
-            padding: 2rem;
-            box-shadow: var(--card-shadow);
-            animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .card-header {
+        .section-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 700;
             margin-bottom: 1.5rem;
             display: flex;
             align-items: center;
             gap: 0.75rem;
+            color: var(--text-main);
         }
 
-        .card-header i {
+        .section-title i {
             color: var(--accent-primary);
-            font-size: 1.25rem;
         }
 
-        .card-header h2 {
-            font-family: var(--font-heading);
-            font-size: 1.25rem;
-            font-weight: 700;
-        }
-
-        /* Form Controls */
         .form-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 1.25rem;
         }
 
-        .form-group {
+        @media (max-width: 640px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .input-group {
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
         }
 
-        .form-group.full-width {
+        .input-group.full-width {
             grid-column: span 2;
         }
 
-        .form-group label {
+        @media (max-width: 640px) {
+            .input-group.full-width {
+                grid-column: span 1;
+            }
+        }
+
+        label {
             font-size: 0.85rem;
             font-weight: 600;
-            color: var(--text-secondary);
-            display: flex;
-            justify-content: space-between;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .input-wrapper {
@@ -313,459 +284,431 @@ HTML_TEMPLATE = """
         .input-wrapper i {
             position: absolute;
             left: 1rem;
-            color: var(--text-secondary);
-            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-size: 1rem;
         }
 
-        .form-control {
+        input, select {
             width: 100%;
-            padding: 0.85rem 1rem 0.85rem 2.75rem;
-            background: var(--bg-surface);
+            padding: 0.85rem 1rem 0.85rem 2.8rem;
+            background: var(--bg-secondary);
             border: 1px solid var(--border-color);
-            border-radius: 14px;
-            color: var(--text-primary);
-            font-family: var(--font-main);
+            border-radius: 12px;
+            color: var(--text-main);
             font-size: 0.95rem;
-            font-weight: 500;
             outline: none;
-            transition: all 0.3s ease;
+            font-family: inherit;
         }
 
-        .form-control:focus {
+        input:focus, select:focus {
             border-color: var(--accent-primary);
-            box-shadow: 0 0 0 4px var(--accent-glow);
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.2);
         }
 
-        select.form-control {
-            cursor: pointer;
-        }
-
-        /* Animated Submit Button */
-        .submit-btn {
-            width: 100%;
-            margin-top: 1.5rem;
+        .btn-submit {
+            grid-column: span 2;
             padding: 1rem;
-            background: var(--accent-gradient);
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
             border: none;
-            border-radius: 14px;
-            color: #fff;
-            font-family: var(--font-heading);
-            font-size: 1.05rem;
+            border-radius: 12px;
+            color: #000;
+            font-family: 'Space Grotesk', sans-serif;
             font-weight: 700;
+            font-size: 1.1rem;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 0.75rem;
-            box-shadow: 0 10px 25px var(--accent-glow);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
+            margin-top: 1rem;
+            box-shadow: var(--shadow-glow);
+            transition: transform 0.2s, box-shadow 0.2s;
         }
 
-        .submit-btn:hover {
+        .btn-submit:hover {
             transform: translateY(-2px);
-            box-shadow: 0 15px 30px var(--accent-glow);
+            box-shadow: 0 15px 35px -10px rgba(0, 242, 254, 0.5);
         }
 
-        .submit-btn:active {
-            transform: translateY(0);
-        }
-
-        .submit-btn::after {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: linear-gradient(60deg, transparent, rgba(255,255,255,0.2), transparent);
-            transform: rotate(30deg);
-            transition: 0.8s;
-        }
-
-        .submit-btn:hover::after {
-            left: 100%;
-        }
-
-        /* Results Display Layout */
-        .results-panel {
+        /* Results & Analytics Container */
+        .analytics-container {
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
         }
 
-        .metric-cards {
+        .prediction-card {
+            padding: 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            background: var(--card-gradient);
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1.5rem;
+            border-radius: 30px;
+            font-weight: 700;
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .status-badge.approved {
+            background: rgba(0, 230, 118, 0.15);
+            color: var(--accent-success);
+            border: 1px solid var(--accent-success);
+        }
+
+        .status-badge.rejected {
+            background: rgba(255, 82, 82, 0.15);
+            color: var(--accent-danger);
+            border: 1px solid var(--accent-danger);
+        }
+
+        .status-badge.idle {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+            border: 1px solid var(--border-color);
+        }
+
+        .gauge-chart {
+            width: 220px;
+            height: 110px;
+            margin: 1rem auto;
+            position: relative;
+        }
+
+        .metrics-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 1rem;
         }
 
         .metric-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
             padding: 1.25rem;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .metric-icon {
-            width: 44px;
-            height: 44px;
-            border-radius: 12px;
-            background: rgba(16, 185, 129, 0.1);
-            color: var(--accent-primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.25rem;
-        }
-
-        .metric-info h4 {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .metric-info p {
-            font-size: 1.35rem;
-            font-weight: 800;
-            font-family: var(--font-heading);
-        }
-
-        /* Chart Canvas Holder */
-        .chart-container {
-            position: relative;
-            height: 280px;
-            width: 100%;
-            margin-top: 1rem;
-        }
-
-        /* Dynamic Score Badge */
-        .prediction-badge {
-            text-align: center;
-            padding: 1.5rem;
-            border-radius: 18px;
-            background: var(--bg-surface);
+            background: rgba(255,255,255,0.02);
+            border-radius: 14px;
             border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .metric-value {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent-primary);
+        }
+
+        .chart-card {
+            padding: 1.5rem;
+            height: 280px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .bar-chart-container {
+            flex: 1;
+            display: flex;
+            align-items: flex-end;
+            gap: 1rem;
+            padding-top: 1.5rem;
+            height: 100%;
+        }
+
+        .bar-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            height: 100%;
+            justify-content: flex-end;
+        }
+
+        .bar {
+            width: 100%;
+            border-radius: 6px 6px 0 0;
+            background: linear-gradient(180deg, var(--accent-primary), var(--accent-secondary));
+            transition: height 1s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
-            overflow: hidden;
+            min-height: 4px;
         }
 
-        .prediction-badge.approved {
-            border-color: rgba(16, 185, 129, 0.4);
-            background: linear-gradient(180deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%);
+        .bar-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-align: center;
         }
 
-        .prediction-badge.rejected {
-            border-color: rgba(239, 68, 68, 0.4);
-            background: linear-gradient(180deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%);
+        .bar-value {
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-bottom: 4px;
         }
 
-        .badge-status {
-            font-family: var(--font-heading);
-            font-size: 1.75rem;
-            font-weight: 800;
-            margin-top: 0.5rem;
+        /* Animations */
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 15px rgba(0, 242, 254, 0.4); }
+            100% { box-shadow: 0 0 30px rgba(79, 172, 254, 0.8); }
         }
 
-        .approved .badge-status { color: #10b981; }
-        .rejected .badge-status { color: #ef4444; }
-
-        /* Keyframes */
-        @keyframes slideDown {
-            from { transform: translateY(-30px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+        .animated-entry {
+            animation: fadeInMove 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
-        @keyframes fadeIn {
-            from { transform: translateY(20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-
-        @keyframes float {
-            0% { transform: translateY(0px); }
-            100% { transform: translateY(-6px); }
+        @keyframes fadeInMove {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
     </style>
 </head>
 <body>
 
-    <div class="bg-glow"></div>
-
-    <div class="app-container">
-        <!-- Dashboard Header -->
-        <header>
-            <div class="brand">
-                <div class="brand-icon">
-                    <i class="fa-solid fa-heart-pulse"></i>
-                </div>
-                <div>
-                    <h1>AI Healthcare Results Prediction</h1>
-                    <p style="font-size: 0.8rem; color: var(--text-secondary);">Smart Diagnostic Risk & Assessment Platform</p>
-                </div>
+    <!-- Professional Navbar -->
+    <header class="header">
+        <div class="logo-container">
+            <div class="logo-icon">
+                <i class="fa-solid fa-brain"></i>
             </div>
-
-            <!-- Theme Chooser -->
-            <div class="theme-selector-wrapper">
-                <label><i class="fa-solid fa-palette"></i> Theme:</label>
-                <button class="theme-btn active" data-theme-val="emerald" title="Emerald Cyber"></button>
-                <button class="theme-btn" data-theme-val="neon" title="Neon Cyberpunk"></button>
-                <button class="theme-btn" data-theme-val="sunset" title="Sunset Gold"></button>
-                <button class="theme-btn" data-theme-val="corporate" title="Corporate Light"></button>
-            </div>
-        </header>
-
-        <!-- Main Workspace -->
-        <div class="dashboard-grid">
-            
-            <!-- Left Side: Interactive Input Controls -->
-            <div class="card">
-                <div class="card-header">
-                    <i class="fa-solid fa-sliders"></i>
-                    <h2>Patient Feature Parameters</h2>
-                </div>
-
-                <form id="prediction-form">
-                    <div class="form-grid">
-                        
-                        <div class="form-group">
-                            <label>Dependents Count</label>
-                            <div class="input-wrapper">
-                                <i class="fa-solid fa-users"></i>
-                                <input type="number" name="no_of_dependents" class="form-control" value="2" min="0" required>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Education Level</label>
-                            <div class="input-wrapper">
-                                <i class="fa-solid fa-graduation-cap"></i>
-                                <select name="education" class="form-control" required>
-                                    <option value="1">Graduate</option>
-                                    <option value="0">Not Graduate</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Self Employed</label>
-                            <div class="input-wrapper">
-                                <i class="fa-solid fa-briefcase"></i>
-                                <select name="self_employed" class="form-control" required>
-                                    <option value="0">No</option>
-                                    <option value="1">Yes</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Annual Income ($)</label>
-                            <div class="input-wrapper">
-                                <i class="fa-solid fa-wallet"></i>
-                                <input type="number" name="income_annum" class="form-control" value="6500000" step="10000" required>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Coverage Amount ($)</label>
-                            <div class="input-wrapper">
-                                <i class="fa-solid fa-file-invoice-dollar"></i>
-                                <input type="number" name="loan_amount" class="form-control" value="15000000" step="10000" required>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Term Duration (Years)</label>
-                            <div class="input-wrapper">
-                                <i class="fa-solid fa-clock"></i>
-                                <input type="number" name="loan_term" class="form-control" value="12" min="1" required>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Health Score Rating</label>
-                            <div class="input-wrapper">
-                                <i class="fa-solid fa-chart-line"></i>
-                                <input type="number" name="cibil_score" class="form-control" value="750" min="300" max="900" required>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Residential Asset Value</label>
-                            <div class="input-wrapper">
-                                <i class="fa-solid fa-house-medical"></i>
-                                <input type="number" name="residential_assets_value" class="form-control" value="4000000" required>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Commercial Assets</label>
-                            <div class="input-wrapper">
-                                <i class="fa-solid fa-building"></i>
-                                <input type="number" name="commercial_assets_value" class="form-control" value="2200000" required>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Luxury Assets</label>
-                            <div class="input-wrapper">
-                                <i class="fa-solid fa-gem"></i>
-                                <input type="number" name="luxury_assets_value" class="form-control" value="8000000" required>
-                            </div>
-                        </div>
-
-                        <div class="form-group full-width">
-                            <label>Bank Capital Asset Value</label>
-                            <div class="input-wrapper">
-                                <i class="fa-solid fa-vault"></i>
-                                <input type="number" name="bank_asset_value" class="form-control" value="5000000" required>
-                            </div>
-                        </div>
-
-                    </div>
-
-                    <button type="submit" class="submit-btn">
-                        <span>Run AI Risk Diagnostic</span>
-                        <i class="fa-solid fa-microchip"></i>
-                    </button>
-                </form>
-            </div>
-
-            <!-- Right Side: Visual Analytics Dashboard -->
-            <div class="results-panel">
-                
-                <!-- Dynamic Diagnostic Output Status -->
-                <div class="prediction-badge approved" id="status-badge">
-                    <p style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;">PREDICTED HEALTH DIAGNOSIS STATUS</p>
-                    <div class="badge-status" id="status-text">LOW RISK APPROVED</div>
-                    <p id="probability-text" style="font-size: 0.9rem; margin-top: 0.25rem; color: var(--text-secondary);">Model Confidence: 92.4%</p>
-                </div>
-
-                <!-- KPI Metric Panels -->
-                <div class="metric-cards">
-                    <div class="metric-card">
-                        <div class="metric-icon"><i class="fa-solid fa-shield-halved"></i></div>
-                        <div class="metric-info">
-                            <h4>Health Index</h4>
-                            <p id="kpi-score">750</p>
-                        </div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-icon"><i class="fa-solid fa-chart-pie"></i></div>
-                        <div class="metric-info">
-                            <h4>Risk Classification</h4>
-                            <p id="kpi-risk">Category A</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Animated Chart Insights -->
-                <div class="card" style="flex: 1;">
-                    <div class="card-header">
-                        <i class="fa-solid fa-chart-column"></i>
-                        <h2>Asset Portfolio & Risk Analytics</h2>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="analyticsChart"></canvas>
-                    </div>
-                </div>
-
-            </div>
-
+            <div class="logo-text">AI Loan Approval Status Prediction</div>
         </div>
-    </div>
+
+        <div class="theme-selector">
+            <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-right: 5px;">THEMES</span>
+            <button class="theme-btn theme-emerald active" onclick="setTheme('emerald')" title="Emerald Neon"></button>
+            <button class="theme-btn theme-cyberpunk" onclick="setTheme('cyberpunk')" title="Cyberpunk"></button>
+            <button class="theme-btn theme-sunset" onclick="setTheme('sunset')" title="Sunset Glow"></button>
+            <button class="theme-btn theme-corporate" onclick="setTheme('corporate')" title="Corporate Dark"></button>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="dashboard-container">
+        
+        <!-- Input Form Section -->
+        <section class="glass-panel animated-entry" style="padding: 2rem;">
+            <div class="section-title">
+                <i class="fa-solid fa-sliders"></i>
+                Applicant Financial Parameters
+            </div>
+
+            <form id="predictionForm" class="form-grid">
+                
+                <div class="input-group">
+                    <label>Dependents</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-users"></i>
+                        <input type="number" name="no_of_dependents" min="0" max="10" value="2" required>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Education</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-graduation-cap"></i>
+                        <select name="education">
+                            <option value="1">Graduate</option>
+                            <option value="0">Not Graduate</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Self Employed</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-briefcase"></i>
+                        <select name="self_employed">
+                            <option value="0">No</option>
+                            <option value="1">Yes</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Annual Income ($)</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-wallet"></i>
+                        <input type="number" name="income_annum" step="1000" value="6500000" required>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Loan Amount ($)</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-hand-holding-dollar"></i>
+                        <input type="number" name="loan_amount" step="1000" value="15000000" required>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Loan Term (Years)</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-clock"></i>
+                        <input type="number" name="loan_term" min="1" max="30" value="10" required>
+                    </div>
+                </div>
+
+                <div class="input-group full-width">
+                    <label>CIBIL Score (300 - 900)</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <input type="number" name="cibil_score" min="300" max="900" value="750" required>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Residential Assets ($)</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-house"></i>
+                        <input type="number" name="residential_assets_value" value="4000000" required>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Commercial Assets ($)</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-building"></i>
+                        <input type="number" name="commercial_assets_value" value="2500000" required>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Luxury Assets ($)</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-gem"></i>
+                        <input type="number" name="luxury_assets_value" value="8000000" required>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Bank Assets ($)</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-piggy-bank"></i>
+                        <input type="number" name="bank_asset_value" value="5000000" required>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-submit">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Predict Loan Approval
+                </button>
+            </form>
+        </section>
+
+        <!-- Dynamic Output & Analytical Section -->
+        <section class="analytics-container animated-entry" style="animation-delay: 0.2s;">
+            
+            <!-- Result Overview Panel -->
+            <div class="glass-panel prediction-card">
+                <div class="section-title" style="justify-content: center; margin-bottom: 0.5rem;">
+                    Assessment Result
+                </div>
+                
+                <div id="statusBadge" class="status-badge status-idle">
+                    <i class="fa-solid fa-circle-question"></i> Awaiting Data
+                </div>
+
+                <!-- Circular Gauge Output Chart -->
+                <div class="gauge-chart">
+                    <svg viewBox="0 0 100 50" style="width: 100%; height: 100%;">
+                        <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="var(--border-color)" stroke-width="8" stroke-linecap="round"/>
+                        <path id="gaugePath" d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="url(#gaugeGradient)" stroke-width="8" stroke-linecap="round" stroke-dasharray="125.6" stroke-dashoffset="125.6" style="transition: stroke-dashoffset 1.5s ease;"/>
+                        <defs>
+                            <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stop-color="var(--accent-primary)"/>
+                                <stop offset="100%" stop-color="var(--accent-secondary)"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                    <div style="position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); text-align: center;">
+                        <span id="scoreText" style="font-size: 1.5rem; font-weight: 800; font-family: 'Space Grotesk';">0%</span>
+                        <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase;">Confidence</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Key Financial Metrics breakdown -->
+            <div class="metrics-grid">
+                <div class="glass-panel metric-card">
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Total Net Asset Value</span>
+                    <span id="metricAssets" class="metric-value">$0.00</span>
+                </div>
+                <div class="glass-panel metric-card">
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Debt-to-Income Ratio</span>
+                    <span id="metricDti" class="metric-value">0.0x</span>
+                </div>
+            </div>
+
+            <!-- Professional Visual Comparison Chart -->
+            <div class="glass-panel chart-card">
+                <div class="section-title" style="font-size: 1rem; margin-bottom: 0;">
+                    <i class="fa-solid fa-chart-column"></i> Asset Distribution Analysis
+                </div>
+                <div class="bar-chart-container">
+                    <div class="bar-wrapper">
+                        <span id="valRes" class="bar-value"></span>
+                        <div id="barRes" class="bar" style="height: 0%;"></div>
+                        <span class="bar-label">Residential</span>
+                    </div>
+                    <div class="bar-wrapper">
+                        <span id="valCom" class="bar-value"></span>
+                        <div id="barCom" class="bar" style="height: 0%;"></div>
+                        <span class="bar-label">Commercial</span>
+                    </div>
+                    <div class="bar-wrapper">
+                        <span id="valLux" class="bar-value"></span>
+                        <div id="barLux" class="bar" style="height: 0%;"></div>
+                        <span class="bar-label">Luxury</span>
+                    </div>
+                    <div class="bar-wrapper">
+                        <span id="valBnk" class="bar-value"></span>
+                        <div id="barBnk" class="bar" style="height: 0%;"></div>
+                        <span class="bar-label">Bank</span>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </main>
 
     <script>
-        // Interactive Theme Swapper Engine
-        const themeBtns = document.querySelectorAll('.theme-btn');
-        themeBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                themeBtns.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                const newTheme = btn.getAttribute('data-theme-val');
-                document.documentElement.setAttribute('data-theme', newTheme);
-                updateChartColors();
-            });
-        });
+        // Theme Toggle Functionality
+        function setTheme(themeName) {
+            document.documentElement.setAttribute('data-theme', themeName);
+            document.querySelectorAll('.theme-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector('.theme-' + themeName).classList.add('active');
+        }
 
-        // Initialize Animated Chart.js Instance
-        let analyticsChart;
-        const ctx = document.getElementById('analyticsChart').getContext('2d');
-
-        function initChart(dataValues = [4, 2.2, 8, 5]) {
-            const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-primary').trim() || '#10b981';
-            const secondaryColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-secondary').trim() || '#06b6d4';
-
-            analyticsChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['Residential', 'Commercial', 'Luxury', 'Bank Capital'],
-                    datasets: [{
-                        label: 'Asset Allocation Valuation (Millions)',
-                        data: dataValues,
-                        backgroundColor: [
-                            primaryColor,
-                            secondaryColor,
-                            primaryColor,
-                            secondaryColor
-                        ],
-                        borderRadius: 10,
-                        borderSkipped: false,
-                        barThickness: 32
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: {
-                        duration: 1200,
-                        easing: 'easeOutQuart'
-                    },
-                    plugins: {
-                        legend: {
-                            labels: {
-                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim(),
-                                font: { family: 'Plus Jakarta Sans', weight: 600 }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            grid: { display: false },
-                            ticks: { 
-                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim(),
-                                font: { family: 'Plus Jakarta Sans', weight: 600 }
-                            }
-                        },
-                        y: {
-                            grid: { color: getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim() },
-                            ticks: { 
-                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim(),
-                                font: { family: 'Plus Jakarta Sans' }
-                            }
-                        }
-                    }
+        // Animated Numerical Increment
+        function animateValue(id, start, end, duration, prefix = '', suffix = '') {
+            const obj = document.getElementById(id);
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                const current = Math.floor(progress * (end - start) + start);
+                obj.innerHTML = prefix + current.toLocaleString() + suffix;
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
                 }
-            });
+            };
+            window.requestAnimationFrame(step);
         }
 
-        function updateChartColors() {
-            if (!analyticsChart) return;
-            const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-primary').trim();
-            const secondaryColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-secondary').trim();
-            
-            analyticsChart.data.datasets[0].backgroundColor = [primaryColor, secondaryColor, primaryColor, secondaryColor];
-            analyticsChart.options.scales.x.ticks.color = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim();
-            analyticsChart.options.scales.y.grid.color = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim();
-            analyticsChart.update();
-        }
-
-        // Handle AJAX Prediction Request
-        document.getElementById('prediction-form').addEventListener('submit', async (e) => {
+        // Dynamic Form Evaluation via API
+        document.getElementById('predictionForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
 
@@ -774,51 +717,56 @@ HTML_TEMPLATE = """
                     method: 'POST',
                     body: formData
                 });
-                const result = await response.json();
+                const data = await response.json();
 
-                if (result.success) {
-                    const statusBadge = document.getElementById('status-badge');
-                    const statusText = document.getElementById('status-text');
-                    const probText = document.getElementById('probability-text');
-                    const kpiScore = document.getElementById('kpi-score');
-                    const kpiRisk = document.getElementById('kpi-risk');
-
-                    // Update Outcome Card UI dynamically
-                    if (result.prediction === 1) {
-                        statusBadge.className = "prediction-badge approved";
-                        statusText.innerText = "APPROVED / LOW RISK";
-                        kpiRisk.innerText = "Category A";
-                    } else {
-                        statusBadge.className = "prediction-badge rejected";
-                        statusText.innerText = "HIGH RISK DETECTED";
-                        kpiRisk.innerText = "Category C";
-                    }
-
-                    probText.innerText = `Model Confidence: ${result.confidence}%`;
-                    kpiScore.innerText = formData.get('cibil_score');
-
-                    // Update Chart Data (scaled down to millions for clear representation)
-                    const assetData = [
-                        parseFloat(formData.get('residential_assets_value')) / 1000000,
-                        parseFloat(formData.get('commercial_assets_value')) / 1000000,
-                        parseFloat(formData.get('luxury_assets_value')) / 1000000,
-                        parseFloat(formData.get('bank_asset_value')) / 1000000
-                    ];
-                    
-                    analyticsChart.data.datasets[0].data = assetData;
-                    analyticsChart.update();
-                } else {
-                    alert('Prediction calculation error: ' + result.error);
+                if (data.error) {
+                    alert(data.error);
+                    return;
                 }
-            } catch (err) {
-                console.error(err);
-                alert('Server request failed.');
-            }
-        });
 
-        // Initialize default view chart
-        window.addEventListener('DOMContentLoaded', () => {
-            initChart();
+                // Update Status UI
+                const statusBadge = document.getElementById('statusBadge');
+                if (data.status === 'Approved') {
+                    statusBadge.className = 'status-badge approved';
+                    statusBadge.innerHTML = '<i class="fa-solid fa-circle-check"></i> Loan Approved';
+                } else {
+                    statusBadge.className = 'status-badge rejected';
+                    statusBadge.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Loan Rejected';
+                }
+
+                // Animate Gauge Chart
+                const totalDash = 125.6;
+                const offset = totalDash - (totalDash * data.probability);
+                document.getElementById('gaugePath').style.strokeDashoffset = offset;
+                
+                // Animate Percentage
+                animateValue('scoreText', 0, Math.round(data.probability * 100), 1200, '', '%');
+
+                // Update Metrics
+                animateValue('metricAssets', 0, data.total_assets, 1000, '$');
+                document.getElementById('metricDti').innerText = data.dti + 'x';
+
+                // Render Chart Animations
+                const assets = data.assets_breakdown;
+                const maxAsset = Math.max(...Object.values(assets), 1);
+
+                const keys = [
+                    { k: 'residential', b: 'barRes', v: 'valRes' },
+                    { k: 'commercial', b: 'barCom', v: 'valCom' },
+                    { k: 'luxury', b: 'barLux', v: 'valLux' },
+                    { k: 'bank', b: 'barBnk', v: 'valBnk' }
+                ];
+
+                keys.forEach(item => {
+                    const val = assets[item.k];
+                    const pct = (val / maxAsset) * 100;
+                    document.getElementById(item.b).style.height = pct + '%';
+                    document.getElementById(item.v).innerText = '$' + (val / 1000000).toFixed(1) + 'M';
+                });
+
+            } catch (err) {
+                console.error('Prediction failed:', err);
+            }
         });
     </script>
 </body>
@@ -826,41 +774,54 @@ HTML_TEMPLATE = """
 """
 
 @app.route('/')
-def index():
-    return render_template_string(HTML_TEMPLATE)
+def home():
+    return render_template_string(HTML_LAYOUT)
 
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
-        # Extract features from incoming Form Post Data
-        feature_values = []
-        for feat in FEATURE_NAMES:
-            val = float(request.form.get(feat, 0))
-            feature_values.append(val)
-
-        input_array = np.array([feature_values])
+        # Extract features from form input
+        features = [float(request.form.get(k, 0)) for k in FEATURE_KEYS]
         
-        # Calculate Risk and Class via Model if available
+        # Calculate financial metrics
+        income = float(request.form.get('income_annum', 1))
+        loan_amount = float(request.form.get('loan_amount', 0))
+        res_asset = float(request.form.get('residential_assets_value', 0))
+        com_asset = float(request.form.get('commercial_assets_value', 0))
+        lux_asset = float(request.form.get('luxury_assets_value', 0))
+        bnk_asset = float(request.form.get('bank_asset_value', 0))
+        
+        total_assets = res_asset + com_asset + lux_asset + bnk_asset
+        dti = round(loan_amount / income, 2) if income > 0 else 0
+
+        # Model Prediction execution
         if model is not None:
-            prediction_class = int(model.predict(input_array)[0])
-            prob_scores = model.predict_proba(input_array)[0]
-            confidence = round(float(np.max(prob_scores)) * 100, 2)
+            input_array = np.array([features])
+            prediction = model.predict(input_array)[0]
+            probability = float(model.predict_proba(input_array)[0][1]) if hasattr(model, "predict_proba") else float(prediction)
         else:
-            # Fallback mock logic for testing UI when model file is not present locally
-            cibil = float(request.form.get('cibil_score', 0))
-            prediction_class = 1 if cibil > 600 else 0
-            confidence = 94.5
+            # Fallback heuristic calculation if pkl fails to load in isolated execution
+            cibil = float(request.form.get('cibil_score', 300))
+            approved = 1 if cibil >= 650 and dti < 4.0 else 0
+            prediction = approved
+            probability = 0.88 if approved else 0.24
+
+        status = "Approved" if int(prediction) == 1 else "Rejected"
 
         return jsonify({
-            'success': True,
-            'prediction': prediction_class,
-            'confidence': confidence
+            'status': status,
+            'probability': probability,
+            'total_assets': total_assets,
+            'dti': dti,
+            'assets_breakdown': {
+                'residential': res_asset,
+                'commercial': com_asset,
+                'luxury': lux_asset,
+                'bank': bnk_asset
+            }
         })
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        })
+        return jsonify({'error': str(e)}), 400
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
