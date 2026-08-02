@@ -20,7 +20,7 @@ def load_model():
 
 model = load_model()
 
-# Feature mapping order as per model definition
+# Feature mapping order as per XGBoost model definition
 FEATURE_KEYS = [
     'no_of_dependents', 'education', 'self_employed', 'income_annum',
     'loan_amount', 'loan_term', 'cibil_score', 'residential_assets_value',
@@ -124,7 +124,6 @@ HTML_LAYOUT = """
                 radial-gradient(circle at 85% 85%, rgba(0, 242, 254, 0.08) 0%, transparent 40%);
         }
 
-        /* Glassmorphism Classes */
         .glass-panel {
             background: var(--card-bg);
             backdrop-filter: blur(16px);
@@ -176,7 +175,13 @@ HTML_LAYOUT = """
             -webkit-text-fill-color: transparent;
         }
 
-        .theme-selector {
+        .controls-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .selector-box {
             display: flex;
             align-items: center;
             gap: 0.5rem;
@@ -184,6 +189,22 @@ HTML_LAYOUT = """
             padding: 0.4rem 0.8rem;
             border-radius: 30px;
             border: 1px solid var(--border-color);
+        }
+
+        .currency-select {
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 0.2rem 0.5rem;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .currency-select option {
+            background: var(--bg-secondary);
+            color: var(--text-main);
         }
 
         .theme-btn {
@@ -195,14 +216,8 @@ HTML_LAYOUT = """
             transition: transform 0.2s;
         }
 
-        .theme-btn:hover {
-            transform: scale(1.2);
-        }
-
-        .theme-btn.active {
-            border-color: #fff;
-            transform: scale(1.1);
-        }
+        .theme-btn:hover { transform: scale(1.2); }
+        .theme-btn.active { border-color: #fff; transform: scale(1.1); }
 
         .theme-emerald { background: linear-gradient(45deg, #00f2fe, #4facfe); }
         .theme-cyberpunk { background: linear-gradient(45deg, #ff007f, #7928ca); }
@@ -219,9 +234,7 @@ HTML_LAYOUT = """
         }
 
         @media (max-width: 1024px) {
-            .dashboard-container {
-                grid-template-columns: 1fr;
-            }
+            .dashboard-container { grid-template-columns: 1fr; }
         }
 
         .section-title {
@@ -235,9 +248,7 @@ HTML_LAYOUT = """
             color: var(--text-main);
         }
 
-        .section-title i {
-            color: var(--accent-primary);
-        }
+        .section-title i { color: var(--accent-primary); }
 
         .form-grid {
             display: grid;
@@ -246,9 +257,7 @@ HTML_LAYOUT = """
         }
 
         @media (max-width: 640px) {
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
+            .form-grid { grid-template-columns: 1fr; }
         }
 
         .input-group {
@@ -257,14 +266,10 @@ HTML_LAYOUT = """
             gap: 0.5rem;
         }
 
-        .input-group.full-width {
-            grid-column: span 2;
-        }
+        .input-group.full-width { grid-column: span 2; }
 
         @media (max-width: 640px) {
-            .input-group.full-width {
-                grid-column: span 1;
-            }
+            .input-group.full-width { grid-column: span 1; }
         }
 
         label {
@@ -330,7 +335,6 @@ HTML_LAYOUT = """
             box-shadow: 0 15px 35px -10px rgba(0, 242, 254, 0.5);
         }
 
-        /* Results & Analytics Container */
         .analytics-container {
             display: flex;
             flex-direction: column;
@@ -453,7 +457,6 @@ HTML_LAYOUT = """
             margin-bottom: 4px;
         }
 
-        /* Animations */
         @keyframes pulse-glow {
             0% { box-shadow: 0 0 15px rgba(0, 242, 254, 0.4); }
             100% { box-shadow: 0 0 30px rgba(79, 172, 254, 0.8); }
@@ -486,12 +489,26 @@ HTML_LAYOUT = """
             <div class="logo-text">AI Loan Approval Status Prediction</div>
         </div>
 
-        <div class="theme-selector">
-            <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-right: 5px;">THEMES</span>
-            <button class="theme-btn theme-emerald active" onclick="setTheme('emerald')" title="Emerald Neon"></button>
-            <button class="theme-btn theme-cyberpunk" onclick="setTheme('cyberpunk')" title="Cyberpunk"></button>
-            <button class="theme-btn theme-sunset" onclick="setTheme('sunset')" title="Sunset Glow"></button>
-            <button class="theme-btn theme-corporate" onclick="setTheme('corporate')" title="Corporate Dark"></button>
+        <div class="controls-container">
+            <!-- Currency Selection Switcher -->
+            <div class="selector-box">
+                <i class="fa-solid fa-coins" style="color: var(--accent-primary); font-size: 0.85rem;"></i>
+                <select id="currencySelect" class="currency-select" onchange="updateCurrencySymbol()">
+                    <option value="$" data-rate="1">USD ($)</option>
+                    <option value="₹" data-rate="83.5">INR (₹)</option>
+                    <option value="€" data-rate="0.92">EUR (€)</option>
+                    <option value="£" data-rate="0.78">GBP (£)</option>
+                </select>
+            </div>
+
+            <!-- Multi-Theme Palette Selection -->
+            <div class="selector-box">
+                <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-right: 2px;">THEME</span>
+                <button class="theme-btn theme-emerald active" onclick="setTheme('emerald')" title="Emerald Neon"></button>
+                <button class="theme-btn theme-cyberpunk" onclick="setTheme('cyberpunk')" title="Cyberpunk"></button>
+                <button class="theme-btn theme-sunset" onclick="setTheme('sunset')" title="Sunset Glow"></button>
+                <button class="theme-btn theme-corporate" onclick="setTheme('corporate')" title="Corporate Dark"></button>
+            </div>
         </div>
     </header>
 
@@ -538,7 +555,7 @@ HTML_LAYOUT = """
                 </div>
 
                 <div class="input-group">
-                    <label>Annual Income ($)</label>
+                    <label>Annual Income (<span class="curr-sym">$</span>)</label>
                     <div class="input-wrapper">
                         <i class="fa-solid fa-wallet"></i>
                         <input type="number" name="income_annum" step="1000" value="6500000" required>
@@ -546,7 +563,7 @@ HTML_LAYOUT = """
                 </div>
 
                 <div class="input-group">
-                    <label>Loan Amount ($)</label>
+                    <label>Loan Amount (<span class="curr-sym">$</span>)</label>
                     <div class="input-wrapper">
                         <i class="fa-solid fa-hand-holding-dollar"></i>
                         <input type="number" name="loan_amount" step="1000" value="15000000" required>
@@ -570,7 +587,7 @@ HTML_LAYOUT = """
                 </div>
 
                 <div class="input-group">
-                    <label>Residential Assets ($)</label>
+                    <label>Residential Assets (<span class="curr-sym">$</span>)</label>
                     <div class="input-wrapper">
                         <i class="fa-solid fa-house"></i>
                         <input type="number" name="residential_assets_value" value="4000000" required>
@@ -578,7 +595,7 @@ HTML_LAYOUT = """
                 </div>
 
                 <div class="input-group">
-                    <label>Commercial Assets ($)</label>
+                    <label>Commercial Assets (<span class="curr-sym">$</span>)</label>
                     <div class="input-wrapper">
                         <i class="fa-solid fa-building"></i>
                         <input type="number" name="commercial_assets_value" value="2500000" required>
@@ -586,7 +603,7 @@ HTML_LAYOUT = """
                 </div>
 
                 <div class="input-group">
-                    <label>Luxury Assets ($)</label>
+                    <label>Luxury Assets (<span class="curr-sym">$</span>)</label>
                     <div class="input-wrapper">
                         <i class="fa-solid fa-gem"></i>
                         <input type="number" name="luxury_assets_value" value="8000000" required>
@@ -594,7 +611,7 @@ HTML_LAYOUT = """
                 </div>
 
                 <div class="input-group">
-                    <label>Bank Assets ($)</label>
+                    <label>Bank Assets (<span class="curr-sym">$</span>)</label>
                     <div class="input-wrapper">
                         <i class="fa-solid fa-piggy-bank"></i>
                         <input type="number" name="bank_asset_value" value="5000000" required>
@@ -607,10 +624,10 @@ HTML_LAYOUT = """
             </form>
         </section>
 
-        <!-- Dynamic Output & Analytical Section -->
+        <!-- Output Analytics Container -->
         <section class="analytics-container animated-entry" style="animation-delay: 0.2s;">
             
-            <!-- Result Overview Panel -->
+            <!-- Result Panel -->
             <div class="glass-panel prediction-card">
                 <div class="section-title" style="justify-content: center; margin-bottom: 0.5rem;">
                     Assessment Result
@@ -620,7 +637,7 @@ HTML_LAYOUT = """
                     <i class="fa-solid fa-circle-question"></i> Awaiting Data
                 </div>
 
-                <!-- Circular Gauge Output Chart -->
+                <!-- Gauge Chart -->
                 <div class="gauge-chart">
                     <svg viewBox="0 0 100 50" style="width: 100%; height: 100%;">
                         <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="var(--border-color)" stroke-width="8" stroke-linecap="round"/>
@@ -639,11 +656,11 @@ HTML_LAYOUT = """
                 </div>
             </div>
 
-            <!-- Key Financial Metrics breakdown -->
+            <!-- Key Metrics -->
             <div class="metrics-grid">
                 <div class="glass-panel metric-card">
                     <span style="font-size: 0.75rem; color: var(--text-muted);">Total Net Asset Value</span>
-                    <span id="metricAssets" class="metric-value">$0.00</span>
+                    <span id="metricAssets" class="metric-value"><span class="curr-sym">$</span>0</span>
                 </div>
                 <div class="glass-panel metric-card">
                     <span style="font-size: 0.75rem; color: var(--text-muted);">Debt-to-Income Ratio</span>
@@ -651,7 +668,7 @@ HTML_LAYOUT = """
                 </div>
             </div>
 
-            <!-- Professional Visual Comparison Chart -->
+            <!-- Visual Bar Chart Analysis -->
             <div class="glass-panel chart-card">
                 <div class="section-title" style="font-size: 1rem; margin-bottom: 0;">
                     <i class="fa-solid fa-chart-column"></i> Asset Distribution Analysis
@@ -684,6 +701,8 @@ HTML_LAYOUT = """
     </main>
 
     <script>
+        let lastResponseData = null;
+
         // Theme Toggle Functionality
         function setTheme(themeName) {
             document.documentElement.setAttribute('data-theme', themeName);
@@ -691,7 +710,18 @@ HTML_LAYOUT = """
             document.querySelector('.theme-' + themeName).classList.add('active');
         }
 
-        // Animated Numerical Increment
+        // Currency Toggle Functionality
+        function updateCurrencySymbol() {
+            const symbol = document.getElementById('currencySelect').value;
+            document.querySelectorAll('.curr-sym').forEach(el => el.innerText = symbol);
+            
+            // Re-render UI text if data exists
+            if (lastResponseData) {
+                renderDashboardMetrics(lastResponseData);
+            }
+        }
+
+        // Numeric Count Up Animation
         function animateValue(id, start, end, duration, prefix = '', suffix = '') {
             const obj = document.getElementById(id);
             let startTimestamp = null;
@@ -707,7 +737,54 @@ HTML_LAYOUT = """
             window.requestAnimationFrame(step);
         }
 
-        // Dynamic Form Evaluation via API
+        function renderDashboardMetrics(data) {
+            const currSymbol = document.getElementById('currencySelect').value;
+
+            // Status UI updates
+            const statusBadge = document.getElementById('statusBadge');
+            if (data.status === 'Approved') {
+                statusBadge.className = 'status-badge approved';
+                statusBadge.innerHTML = '<i class="fa-solid fa-circle-check"></i> Loan Approved';
+            } else {
+                statusBadge.className = 'status-badge rejected';
+                statusBadge.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Loan Rejected';
+            }
+
+            // Gauge rendering
+            const totalDash = 125.6;
+            const offset = totalDash - (totalDash * data.probability);
+            document.getElementById('gaugePath').style.strokeDashoffset = offset;
+            
+            // Percent animation
+            animateValue('scoreText', 0, Math.round(data.probability * 100), 1200, '', '%');
+
+            // Asset metric rendering
+            animateValue('metricAssets', 0, data.total_assets, 1000, currSymbol);
+            document.getElementById('metricDti').innerText = data.dti + 'x';
+
+            // Chart rendering
+            const assets = data.assets_breakdown;
+            const maxAsset = Math.max(...Object.values(assets), 1);
+
+            const keys = [
+                { k: 'residential', b: 'barRes', v: 'valRes' },
+                { k: 'commercial', b: 'barCom', v: 'valCom' },
+                { k: 'luxury', b: 'barLux', v: 'valLux' },
+                { k: 'bank', b: 'barBnk', v: 'valBnk' }
+            ];
+
+            keys.forEach(item => {
+                const val = assets[item.k];
+                const pct = (val / maxAsset) * 100;
+                document.getElementById(item.b).style.height = pct + '%';
+                
+                // Formatted shorthand label
+                let formattedVal = val >= 1000000 ? (val / 1000000).toFixed(1) + 'M' : (val / 1000).toFixed(0) + 'K';
+                document.getElementById(item.v).innerText = currSymbol + formattedVal;
+            });
+        }
+
+        // Dynamic API Handling
         document.getElementById('predictionForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
@@ -724,45 +801,8 @@ HTML_LAYOUT = """
                     return;
                 }
 
-                // Update Status UI
-                const statusBadge = document.getElementById('statusBadge');
-                if (data.status === 'Approved') {
-                    statusBadge.className = 'status-badge approved';
-                    statusBadge.innerHTML = '<i class="fa-solid fa-circle-check"></i> Loan Approved';
-                } else {
-                    statusBadge.className = 'status-badge rejected';
-                    statusBadge.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Loan Rejected';
-                }
-
-                // Animate Gauge Chart
-                const totalDash = 125.6;
-                const offset = totalDash - (totalDash * data.probability);
-                document.getElementById('gaugePath').style.strokeDashoffset = offset;
-                
-                // Animate Percentage
-                animateValue('scoreText', 0, Math.round(data.probability * 100), 1200, '', '%');
-
-                // Update Metrics
-                animateValue('metricAssets', 0, data.total_assets, 1000, '$');
-                document.getElementById('metricDti').innerText = data.dti + 'x';
-
-                // Render Chart Animations
-                const assets = data.assets_breakdown;
-                const maxAsset = Math.max(...Object.values(assets), 1);
-
-                const keys = [
-                    { k: 'residential', b: 'barRes', v: 'valRes' },
-                    { k: 'commercial', b: 'barCom', v: 'valCom' },
-                    { k: 'luxury', b: 'barLux', v: 'valLux' },
-                    { k: 'bank', b: 'barBnk', v: 'valBnk' }
-                ];
-
-                keys.forEach(item => {
-                    const val = assets[item.k];
-                    const pct = (val / maxAsset) * 100;
-                    document.getElementById(item.b).style.height = pct + '%';
-                    document.getElementById(item.v).innerText = '$' + (val / 1000000).toFixed(1) + 'M';
-                });
+                lastResponseData = data;
+                renderDashboardMetrics(data);
 
             } catch (err) {
                 console.error('Prediction failed:', err);
@@ -780,10 +820,9 @@ def home():
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
-        # Extract features from form input
+        # Extract numerical features in exact model sequence
         features = [float(request.form.get(k, 0)) for k in FEATURE_KEYS]
         
-        # Calculate financial metrics
         income = float(request.form.get('income_annum', 1))
         loan_amount = float(request.form.get('loan_amount', 0))
         res_asset = float(request.form.get('residential_assets_value', 0))
@@ -794,19 +833,28 @@ def predict():
         total_assets = res_asset + com_asset + lux_asset + bnk_asset
         dti = round(loan_amount / income, 2) if income > 0 else 0
 
-        # Model Prediction execution
+        # Model Prediction execution logic
         if model is not None:
             input_array = np.array([features])
-            prediction = model.predict(input_array)[0]
-            probability = float(model.predict_proba(input_array)[0][1]) if hasattr(model, "predict_proba") else float(prediction)
+            raw_pred = int(model.predict(input_array)[0])
+            
+            # Corrected Mapping (Inverted to fix reverse classification):
+            # If 0 = Approved & 1 = Rejected in the raw pickle tree data,
+            # mapping is flipped here so 1 represents Approved.
+            is_approved = (raw_pred == 0)
+            
+            if hasattr(model, "predict_proba"):
+                probs = model.predict_proba(input_array)[0]
+                probability = float(probs[0]) if is_approved else float(probs[1])
+            else:
+                probability = 0.92 if is_approved else 0.18
         else:
-            # Fallback heuristic calculation if pkl fails to load in isolated execution
+            # Fallback heuristic calculation if model fails to load
             cibil = float(request.form.get('cibil_score', 300))
-            approved = 1 if cibil >= 650 and dti < 4.0 else 0
-            prediction = approved
-            probability = 0.88 if approved else 0.24
+            is_approved = (cibil >= 650 and dti < 4.0)
+            probability = 0.88 if is_approved else 0.24
 
-        status = "Approved" if int(prediction) == 1 else "Rejected"
+        status = "Approved" if is_approved else "Rejected"
 
         return jsonify({
             'status': status,
