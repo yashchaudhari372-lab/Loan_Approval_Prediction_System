@@ -15,7 +15,7 @@ The **Loan Approval Prediction System** is an end-to-end machine learning projec
 
 The project demonstrates a practical ML workflow: preparing applicant data, training and evaluating a classifier, saving the model, and serving predictions in a web application.
 
-> **Important:** This is a demonstration/portfolio project. Its predictions should not be used as the sole basis for real lending decisions. Production lending systems require fairness testing, explainability, privacy protections, regulatory compliance, and human oversight.
+> **Important:** This is a demonstration/portfolio project. Its predictions should not be used as the sole basis for real lending decisions. Production lending systems require fairness testing, explainability, privacy protections, regulatory compliance, and human oversight..
 
 ## ✨ Key Features
 
